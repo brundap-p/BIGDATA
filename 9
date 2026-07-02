@@ -1,0 +1,55 @@
+!pip install pyspark -q
+logs = [
+    "2025-01-01 /home",
+    "2025-01-01 /about",
+    "2025-01-01 /home",
+    "2025-01-02 /contact",
+    "2025-01-02 /home",
+    "2025-01-02 /products",
+    "2025-01-03 /home",
+    "2025-01-03 /products",
+    "2025-01-03 /products",
+    "2025-01-03 /contact"
+]
+
+with open("server_logs.txt", "w") as f:
+    for log in logs:
+        f.write(log + "\n")
+
+print("Log file created.")
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("WebTrafficAnalysis") \
+    .getOrCreate()
+
+sc = spark.sparkContext
+rdd = sc.textFile("server_logs.txt")
+
+print("Total Records:", rdd.count())
+total_requests = (
+    rdd.map(lambda x: ("Requests", 1))
+       .reduceByKey(lambda a, b: a + b)
+)
+
+print("Total Website Requests:")
+print(total_requests.collect())
+page_visits = (
+    rdd.map(lambda x: (x.split()[1], 1))
+       .reduceByKey(lambda a, b: a + b)
+)
+
+page_visits.collect()
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = page_visits.collect()
+
+df = pd.DataFrame(data, columns=["Page", "Visits"])
+
+plt.figure(figsize=(6,4))
+plt.bar(df["Page"], df["Visits"])
+plt.title("Website Traffic Analysis")
+plt.xlabel("Pages")
+plt.ylabel("Number of Visits")
+plt.show()
