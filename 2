@@ -1,0 +1,12 @@
+!pip install pyspark -q
+!wget -O book.txt https://www.gutenberg.org/files/1342/1342-0.txt
+rdd = sc.textFile("book.txt")
+#count lines (direct count)
+line_count = rdd.count()
+
+print("Total Number of Lines:", line_count)
+#using RDD operation
+line_count = rdd.map(lambda line: 1) \
+                .reduce(lambda x, y: x + y)
+
+print("Total Number of Lines:", line_count)
