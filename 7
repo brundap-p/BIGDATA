@@ -1,0 +1,46 @@
+import pyspark
+from pyspark.sql import SparkSession
+from pyspark import StorageLevel
+
+spark = SparkSession.builder \
+    .appName("Caching_and_Lazy_Evaluation") \
+    .getOrCreate()
+
+sc = spark.sparkContext
+
+numbers = sc.parallelize([1, 2, 3, 4, 5])
+
+print("RDD Created")
+
+#LAZY EVALUATION
+squared_rdd = numbers.map(lambda x: x * x)
+
+print("Transformation Applied")
+
+#PERFORM ACTION
+result = squared_rdd.collect()
+
+print(result)
+
+#CACHED RDD
+squared_rdd.cache()
+
+print("RDD Cached")
+
+#EXCECUTE MULTIPLE OPTION
+print("Count =", squared_rdd.count())
+print("Sum =", squared_rdd.reduce(lambda a, b: a + b))
+
+#PERSISTED RDD
+
+# Unpersist the RDD if it was previously cached/persisted
+squared_rdd.unpersist(blocking=True)
+
+squared_rdd.persist(StorageLevel.MEMORY_AND_DISK)
+
+print("RDD Persisted")
+
+## Unpersist the RDD
+squared_rdd.unpersist()
+
+print("RDD Removed from Cache")
