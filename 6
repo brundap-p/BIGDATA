@@ -1,0 +1,62 @@
+# Install PySpark
+!pip install pyspark
+
+# Create a Pandas DataFrame and export to CSV
+import pandas as pd
+
+data = {
+    "id": [1, 2, 3, 4, 5],
+    "name": ["Alice", "Bob", "Charlie", "David", "Eva"],
+    "department": ["HR", "IT", "IT", "Finance", "HR"],
+    "salary": [30000, 50000, 60000, 45000, 35000]
+}
+
+df = pd.DataFrame(data)
+df.to_csv("employees.csv", index=False)
+
+print("employees.csv created successfully")
+
+# Initialize SparkSession
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder \
+    .appName("Aggregate_Operations") \
+    .getOrCreate()
+
+# Read the CSV into a Spark DataFrame and show it
+employee_df = spark.read.csv(
+    "employees.csv",
+    header=True,
+    inferSchema=True
+)
+
+employee_df.show()
+
+# Create a temporary view for SQL queries
+employee_df.createOrReplaceTempView("employees")
+
+# Perform overall aggregate operations
+result = spark.sql("""
+SELECT
+    SUM(salary) AS Total_Salary,
+    AVG(salary) AS Average_Salary,
+    MAX(salary) AS Maximum_Salary,
+    MIN(salary) AS Minimum_Salary
+FROM employees
+""")
+
+result.show()
+
+# Perform department-wise aggregate operations
+dept_result = spark.sql("""
+SELECT
+    department,
+    SUM(salary) AS Total_Salary,
+    AVG(salary) AS Average_Salary,
+    MAX(salary) AS Maximum_Salary,
+    MIN(salary) AS Minimum_Salary
+FROM employees
+GROUP BY department
+""")
+
+dept_result.show()
