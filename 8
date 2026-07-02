@@ -1,0 +1,86 @@
+import pandas as pd
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import udf
+from pyspark.sql.types import StringType
+import matplotlib.pyplot as plt
+
+# 1. Prepare Data (from cell t0K1wrx7nrmH)
+reviews = {
+    "Review": [
+        "This product is amazing and works perfectly",
+        "Very bad quality and waste of money",
+        "Excellent product, highly recommended",
+        "Terrible experience, not worth buying",
+        "Good value for money",
+        "Worst product I have ever used",
+        "Fantastic quality and great performance",
+        "Poor packaging and bad service",
+        "I love this product",
+        "Not satisfied with the purchase"
+    ]
+}
+df = pd.DataFrame(reviews)
+df.to_csv("product_reviews.csv", index=False)
+print("CSV File Created Successfully!")
+
+# 2. Initialize Spark Session (from cell 5B0mbA-8nzPt)
+spark = SparkSession.builder \
+    .appName("SentimentAnalysis") \
+    .getOrCreate()
+
+# 3. Load Data into Spark DataFrame (from cell SvXiRa8onzER)
+data = spark.read.csv(
+    "product_reviews.csv",
+    header=True,
+    inferSchema=True
+)
+print("Spark DataFrame loaded:")
+data.show(truncate=False)
+
+# 4. Define Sentiment Word Lists (from cell VGeoZRnhoHWH)
+positive_words = [
+    "amazing", "excellent", "good",
+    "fantastic", "love", "great",
+    "recommended", "perfectly"
+]
+negative_words = [
+    "bad", "worst", "terrible",
+    "poor", "waste", "not",
+    "unsatisfied", "disappointed"
+]
+
+# 5. Define UDF for Sentiment Analysis (from cell 6ZTEU5x2oMr0)
+def get_sentiment(review):
+    review = review.lower()
+    pos_count = sum(word in review for word in positive_words)
+    neg_count = sum(word in review for word in negative_words)
+    if pos_count > neg_count:
+        return "Positive"
+    elif neg_count > pos_count:
+        return "Negative"
+    else:
+        return "Neutral" # Added neutral for cases where counts are equal
+
+sentiment_udf = udf(get_sentiment, StringType())
+
+# 6. Apply Sentiment Analysis (from cell 7yJleviyoSVe)
+result = data.withColumn(
+    "Sentiment",
+    sentiment_udf(data["Review"])
+)
+print("Reviews with Sentiment:")
+result.show(truncate=False)
+
+# 7. Count Positive and Negative Reviews (from cell dkDt1JGHor8X)
+sentiment_count = result.groupBy("Sentiment").count()
+print("Sentiment Counts:")
+sentiment_count.show()
+
+# 8. Visualize Results (from cell hxVYNzIioxNu)
+counts = sentiment_count.toPandas()
+plt.figure(figsize=(5,4))
+plt.bar(counts["Sentiment"], counts["count"])
+plt.title("Positive vs Negative Reviews")
+plt.xlabel("Sentiment")
+plt.ylabel("Number of Reviews")
+plt.show()
