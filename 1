@@ -1,0 +1,14 @@
+!wget https://www.gutenberg.org/files/1342/1342-0.txt
+
+# Load the text file into an RDD
+r_dd = sc.textFile("1342-0.txt")
+
+# Perform word count using RDD transformations
+word_count = (r_dd.flatMap(lambda line: line.split())
+                  .map(lambda word: (word.lower(), 1))
+                  .reduceByKey(lambda a, b: a + b))
+
+# Display top N words, as collecting all might be too much for output
+# we can adjust 'take(100)' to see more or less
+for word, count in word_count.collect():
+    print(word, ":", count)
