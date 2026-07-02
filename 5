@@ -1,0 +1,65 @@
+import pandas as pd
+from pyspark.sql import SparkSession
+
+# Install pyspark if not already installed (this would typically be in a separate cell, but combined as requested)
+# !pip install pyspark
+
+# 1. Create a DataFrame from a CSV file (or data that will be saved to CSV)
+data = {
+    "id": [1, 2, 3, 4, 5],
+    "name": ["Alice", "Bob", "Charlie", "David", "Eva"],
+    "age": [25, 35, 40, 28, 35],
+    "department": ["HR", "IT", "IT", "Finance", "HR"],
+    "salary": [30000, 50000, 60000, 45000, 35000]
+}
+
+df = pd.DataFrame(data)
+df.to_csv("employees.csv", index=False)
+
+print("employees.csv created successfully\n")
+
+# 2. Initialize SparkSession
+spark = SparkSession.builder \
+    .appName("DataFrame_SQL_Queries") \
+    .getOrCreate()
+
+# 3. Load the CSV into a Spark DataFrame
+employee_df = spark.read.csv(
+    "employees.csv",
+    header=True,
+    inferSchema=True
+)
+
+print("Spark DataFrame content:")
+employee_df.show()
+
+# 4. Create a temporary view for SQL queries
+employee_df.createOrReplaceTempView("employees")
+
+# 5. Run SQL queries
+print("\n--- SELECT Query ---")
+result1 = spark.sql("""
+SELECT name, salary
+FROM employees
+""")
+result1.show()
+
+print("\n--- WHERE Query ---")
+result2 = spark.sql("""
+SELECT *
+FROM employees
+WHERE age > 30
+""")
+result2.show()
+
+print("\n--- GROUP BY Query ---")
+result3 = spark.sql("""
+SELECT department,
+       COUNT(*) AS employee_count
+FROM employees
+GROUP BY department
+""")
+result3.show()
+
+# Stop SparkSession (optional, good practice in non-interactive environments)
+# spark.stop()
