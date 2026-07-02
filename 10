@@ -1,0 +1,87 @@
+!pip install pyspark -q
+import pandas as pd
+from pyspark.sql import SparkSession
+import matplotlib.pyplot as plt
+
+# Create initial pandas DataFrame and save to CSV
+ratings = {
+    "Service": [
+        "Internet",
+        "Internet",
+        "Internet",
+        "Delivery",
+        "Delivery",
+        "Delivery",
+        "Support",
+        "Support",
+        "Support"
+    ],
+    "Rating": [
+        5,4,5,
+        3,4,5,
+        4,5,4
+    ]
+}
+
+df_pandas_initial = pd.DataFrame(ratings)
+
+df_pandas_initial.to_csv("service_ratings.csv", index=False)
+
+display(df_pandas_initial)
+
+# Initialize Spark Session
+spark = SparkSession.builder \
+    .appName("ServiceRatingPrediction") \
+    .getOrCreate()
+
+sc = spark.sparkContext
+
+# Read data into Spark DataFrame
+data = spark.read.csv(
+    "service_ratings.csv",
+    header=True,
+    inferSchema=True
+)
+
+data.show()
+
+# Perform MapReduce to calculate average ratings
+rdd = data.rdd
+
+service_avg = (
+    rdd.map(lambda x: (x["Service"], (x["Rating"], 1)))
+       .reduceByKey(
+           lambda a, b:
+           (a[0] + b[0], a[1] + b[1])
+       )
+       .mapValues(
+           lambda x: x[0] / x[1]
+       )
+)
+
+print(service_avg.collect())
+
+# Predict service quality based on average ratings
+predictions = service_avg.mapValues(
+    lambda avg:
+    "Excellent" if avg >= 4.5
+    else "Good" if avg >= 3.5
+    else "Poor"
+)
+
+print(predictions.collect())
+
+# Visualize average service ratings
+result = service_avg.collect()
+
+df_plot = pd.DataFrame(
+    result,
+    columns=["Service", "Average Rating"]
+)
+
+plt.figure(figsize=(6,4))
+plt.bar(df_plot["Service"], df_plot["Average Rating"])
+plt.title("Average Service Ratings")
+plt.xlabel("Service")
+plt.ylabel("Rating")
+plt.show()
