@@ -1,87 +1,41 @@
+# Install PySpark
 !pip install pyspark -q
-import pandas as pd
 from pyspark.sql import SparkSession
-import matplotlib.pyplot as plt
 
-# Create initial pandas DataFrame and save to CSV
-ratings = {
-    "Service": [
-        "Internet",
-        "Internet",
-        "Internet",
-        "Delivery",
-        "Delivery",
-        "Delivery",
-        "Support",
-        "Support",
-        "Support"
-    ],
-    "Rating": [
-        5,4,5,
-        3,4,5,
-        4,5,4
-    ]
-}
-
-df_pandas_initial = pd.DataFrame(ratings)
-
-df_pandas_initial.to_csv("service_ratings.csv", index=False)
-
-display(df_pandas_initial)
-
-# Initialize Spark Session
-spark = SparkSession.builder \
-    .appName("ServiceRatingPrediction") \
-    .getOrCreate()
-
+spark = SparkSession.builder.appName("ServiceRatingPrediction").
+getOrCreate()
 sc = spark.sparkContext
 
-# Read data into Spark DataFrame
-data = spark.read.csv(
-    "service_ratings.csv",
-    header=True,
-    inferSchema=True
+# Load CSV
+rdd = sc.textFile("/content/googleplaystore.csv")
+
+# Remove header
+header = rdd.first()
+data = rdd.filter(lambda x: x!= header)
+
+# Extract Category and Rating
+ratings = data.map(lambda x: x.split(","))
+
+# Keep valid ratings
+valid = ratings.filter(
+    lambda x: len(x) > 2 and x[2].replace(".", "", 1).isdigit()
 )
 
-data.show()
-
-# Perform MapReduce to calculate average ratings
-rdd = data.rdd
-
-service_avg = (
-    rdd.map(lambda x: (x["Service"], (x["Rating"], 1)))
-       .reduceByKey(
-           lambda a, b:
-           (a[0] + b[0], a[1] + b[1])
-       )
-       .mapValues(
-           lambda x: x[0] / x[1]
-       )
+# MapReduce for average rating
+mapped = valid.map(
+    lambda x: (x[1], (float(x[2]), 1))
 )
 
-print(service_avg.collect())
-
-# Predict service quality based on average ratings
-predictions = service_avg.mapValues(
-    lambda avg:
-    "Excellent" if avg >= 4.5
-    else "Good" if avg >= 3.5
-    else "Poor"
+result = mapped.reduceByKey(
+    lambda a, b: (a[0] + b[0], a[1] + b[1])
 )
 
-print(predictions.collect())
-
-# Visualize average service ratings
-result = service_avg.collect()
-
-df_plot = pd.DataFrame(
-    result,
-    columns=["Service", "Average Rating"]
+avg_rating = result.mapValues(
+    lambda x: round(x[0] / x[1], 2)
 )
 
-plt.figure(figsize=(6,4))
-plt.bar(df_plot["Service"], df_plot["Average Rating"])
-plt.title("Average Service Ratings")
-plt.xlabel("Service")
-plt.ylabel("Rating")
-plt.show()
+print("Average Rating by Category\n")
+for row in avg_rating.take(10):
+    print(row)
+
+spark.stop()
